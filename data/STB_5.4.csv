@@ -1,0 +1,25 @@
+ID,Date,NC,ADD.S,Sales.Q
+1.0, 1.Tue,3.0,No,LT.A
+2.0, 1.Fri,4.0,No,AVG
+3.0, 2.Tue,3.0,Yes,LT.A
+4.0, 2.Fri,13.0,No,GT.A
+5.0, 3.Tue,2.0,Yes,LT.A
+6.0, 3.Fri,2.0,Yes,LT.A
+7.0, 4.Tue,2.0,No,GT.A
+8.0, 4.Fri,2.0,No,LT.A
+9.0, 5.Tue,4.0,No,AVG
+10.0, 5.Fri,6.0,No,LT.A
+11.0, 6.Tue,1.0,No,LT.A
+12.0, 6.Fri,5.0,No,AVG
+13.0, 7.Tue,5.0,No,AVG
+14.0, 7.Fri,8.0,No,GT.A
+15.0, 8.Tue,8.0,No,GT.A
+16.0, 8.Fri,4.0,Yes,AVG
+17.0, 9.Tue,3.0,No,LT.A
+18.0, 9.Fri,12.0,No,GT.A
+19.0,10.Tue,5.0,Yes,AVG
+20.0,10.Fri,5.0,No,AVG
+21.0,11.Tue,5.0,No,AVG
+22.0,11.Fri,4.0,Yes,AVG
+23.0,12.Tue,9.0,No,GT.A
+24.0,12.Fri,6.0,No,GT.A
