@@ -20,7 +20,7 @@ def load_stb(filename):
 test_type = st.sidebar.selectbox(
     "검정 유형",
     ["정규성 검정", "1-Sample t Test", "2-Sample t Test", "Paired t Test",
-     "등분산 검정", "카이제곱 검정"]
+     "등분산 검정", "카이제곱 검정", "1-Proportion Test", "2-Proportion Test"]
 )
 
 def parse_data(raw_text):
@@ -382,3 +382,176 @@ elif test_type == "카이제곱 검정":
             with col2:
                 st.subheader("기대 빈도")
                 st.dataframe(pd.DataFrame(np.round(expected, 2)), use_container_width=True)
+
+# ==============================================================
+# 1-Proportion Test
+# ==============================================================
+elif test_type == "1-Proportion Test":
+    st.header("1-Proportion Test (1-비율 검정)")
+    st.markdown("""
+    모집단의 비율(p)이 특정 목표값(p₀)과 같은지 검정합니다.
+    - **H₀**: p = p₀
+    - **검정 통계량**: Z = (p̂ - p₀) / √(p₀(1-p₀)/n)
+    """)
+
+    st.sidebar.subheader("데이터 입력")
+    x = st.sidebar.number_input("성공(불량) 수 (x)", value=45, min_value=0, step=1)
+    n = st.sidebar.number_input("시행 수 (n)", value=500, min_value=1, step=1)
+    p0 = st.sidebar.number_input("목표 비율 (p₀)", value=0.10, min_value=0.001, max_value=0.999, format="%.4f")
+    alt = st.sidebar.selectbox("대립가설", ["p ≠ p₀ (양측)", "p > p₀ (우측)", "p < p₀ (좌측)"])
+    alpha = st.sidebar.number_input("유의수준 (α)", value=0.05, min_value=0.01, max_value=0.20, format="%.2f")
+
+    if st.button("▶ 검정 실행"):
+        p_hat = x / n
+        se = np.sqrt(p0 * (1 - p0) / n)
+        z_stat = (p_hat - p0) / se
+
+        if "양측" in alt:
+            p_val = 2 * stats.norm.sf(abs(z_stat))
+        elif "우측" in alt:
+            p_val = stats.norm.sf(z_stat)
+        else:
+            p_val = stats.norm.cdf(z_stat)
+
+        # Confidence interval (Wald)
+        se_hat = np.sqrt(p_hat * (1 - p_hat) / n)
+        z_crit = stats.norm.ppf(1 - alpha / 2)
+        ci_low = p_hat - z_crit * se_hat
+        ci_high = p_hat + z_crit * se_hat
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("검정 결과")
+            st.dataframe(pd.DataFrame({
+                '항목': ['n', '성공 수 (x)', '표본 비율 (p̂)', '목표 비율 (p₀)',
+                         'Z 통계량', 'p-value',
+                         f'{(1-alpha)*100:.0f}% CI 하한', f'{(1-alpha)*100:.0f}% CI 상한'],
+                '값': [n, x, f"{p_hat:.4f}", f"{p0:.4f}",
+                       f"{z_stat:.4f}", f"{p_val:.4f}",
+                       f"{ci_low:.4f}", f"{ci_high:.4f}"]
+            }), hide_index=True, use_container_width=True)
+
+        with col2:
+            st.subheader("판정")
+            if p_val < alpha:
+                st.error(f"p-value = {p_val:.4f} < {alpha} → H₀ 기각")
+                st.markdown(f"표본 비율 p̂ = {p_hat:.4f}은 목표 비율 p₀ = {p0:.4f}과 **유의한 차이**가 있습니다.")
+            else:
+                st.success(f"p-value = {p_val:.4f} ≥ {alpha} → H₀ 채택")
+                st.markdown(f"표본 비율 p̂ = {p_hat:.4f}은 목표 비율 p₀ = {p0:.4f}과 유의한 차이가 없습니다.")
+
+        # Visualization
+        st.subheader("검정 시각화")
+        x_range = np.linspace(-4, 4, 300)
+        y_range = stats.norm.pdf(x_range)
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=x_range, y=y_range, mode='lines',
+                                 line=dict(color='#2e75b6'), name='Z 분포'))
+        fig.add_vline(x=z_stat, line_color='red', line_dash='dash',
+                      annotation_text=f"Z={z_stat:.3f}")
+        if "양측" in alt:
+            z_c = stats.norm.ppf(1 - alpha / 2)
+            fig.add_vrect(x0=-4, x1=-z_c, fillcolor='red', opacity=0.1)
+            fig.add_vrect(x0=z_c, x1=4, fillcolor='red', opacity=0.1)
+        elif "우측" in alt:
+            z_c = stats.norm.ppf(1 - alpha)
+            fig.add_vrect(x0=z_c, x1=4, fillcolor='red', opacity=0.1)
+        else:
+            z_c = stats.norm.ppf(alpha)
+            fig.add_vrect(x0=-4, x1=z_c, fillcolor='red', opacity=0.1)
+        fig.update_layout(height=350, xaxis_title="Z", yaxis_title="밀도", showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+# ==============================================================
+# 2-Proportion Test
+# ==============================================================
+elif test_type == "2-Proportion Test":
+    st.header("2-Proportion Test (2-비율 검정)")
+    st.markdown("""
+    두 모집단의 비율(p₁, p₂)이 서로 같은지 검정합니다.
+    - **H₀**: p₁ - p₂ = 0
+    - **검정 통계량**: Z = (p̂₁ - p̂₂) / √(p̄(1-p̄)(1/n₁ + 1/n₂))
+    - 여기서 p̄ = (x₁ + x₂) / (n₁ + n₂) (pooled proportion)
+    """)
+
+    st.sidebar.subheader("그룹 1")
+    x1 = st.sidebar.number_input("성공 수 (x₁)", value=36, min_value=0, step=1)
+    n1 = st.sidebar.number_input("시행 수 (n₁)", value=300, min_value=1, step=1)
+
+    st.sidebar.subheader("그룹 2")
+    x2 = st.sidebar.number_input("성공 수 (x₂)", value=54, min_value=0, step=1)
+    n2 = st.sidebar.number_input("시행 수 (n₂)", value=350, min_value=1, step=1)
+
+    alt = st.sidebar.selectbox("대립가설", ["p₁ ≠ p₂ (양측)", "p₁ > p₂ (우측)", "p₁ < p₂ (좌측)"])
+    alpha = st.sidebar.number_input("유의수준 (α)", value=0.05, min_value=0.01, max_value=0.20, format="%.2f")
+
+    if st.button("▶ 검정 실행"):
+        p1_hat = x1 / n1
+        p2_hat = x2 / n2
+        p_pool = (x1 + x2) / (n1 + n2)
+        se = np.sqrt(p_pool * (1 - p_pool) * (1/n1 + 1/n2))
+
+        if se == 0:
+            st.error("표준 오차가 0입니다. 데이터를 확인하세요.")
+            st.stop()
+
+        z_stat = (p1_hat - p2_hat) / se
+
+        if "양측" in alt:
+            p_val = 2 * stats.norm.sf(abs(z_stat))
+        elif "우측" in alt:
+            p_val = stats.norm.sf(z_stat)
+        else:
+            p_val = stats.norm.cdf(z_stat)
+
+        # CI for difference
+        se_diff = np.sqrt(p1_hat*(1-p1_hat)/n1 + p2_hat*(1-p2_hat)/n2)
+        z_crit = stats.norm.ppf(1 - alpha / 2)
+        diff = p1_hat - p2_hat
+        ci_low = diff - z_crit * se_diff
+        ci_high = diff + z_crit * se_diff
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.subheader("기술 통계")
+            st.dataframe(pd.DataFrame({
+                '': ['그룹 1', '그룹 2'],
+                '성공 수': [x1, x2],
+                '시행 수': [n1, n2],
+                '비율': [f"{p1_hat:.4f}", f"{p2_hat:.4f}"]
+            }), hide_index=True, use_container_width=True)
+
+            st.dataframe(pd.DataFrame({
+                '항목': ['비율 차이 (p̂₁ - p̂₂)', 'Pooled 비율', 'Z 통계량', 'p-value',
+                         f'{(1-alpha)*100:.0f}% CI 하한', f'{(1-alpha)*100:.0f}% CI 상한'],
+                '값': [f"{diff:.4f}", f"{p_pool:.4f}", f"{z_stat:.4f}", f"{p_val:.4f}",
+                       f"{ci_low:.4f}", f"{ci_high:.4f}"]
+            }), hide_index=True, use_container_width=True)
+
+        with col2:
+            st.subheader("판정")
+            if p_val < alpha:
+                st.error(f"p-value = {p_val:.4f} < {alpha} → H₀ 기각")
+                st.markdown(f"두 그룹의 비율에 **유의한 차이**가 있습니다. (차이 = {diff:.4f})")
+            else:
+                st.success(f"p-value = {p_val:.4f} ≥ {alpha} → H₀ 채택")
+                st.markdown(f"두 그룹의 비율에 유의한 차이가 없습니다. (차이 = {diff:.4f})")
+
+        # Visualization
+        st.subheader("비율 비교")
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=['그룹 1', '그룹 2'],
+            y=[p1_hat, p2_hat],
+            text=[f"{p1_hat:.4f}", f"{p2_hat:.4f}"],
+            textposition='outside',
+            marker_color=['#2e75b6', '#e74c3c'],
+            error_y=dict(
+                type='data',
+                array=[z_crit * np.sqrt(p1_hat*(1-p1_hat)/n1),
+                       z_crit * np.sqrt(p2_hat*(1-p2_hat)/n2)],
+                visible=True
+            )
+        ))
+        fig.update_layout(height=400, yaxis_title="비율", yaxis_tickformat='.3f')
+        st.plotly_chart(fig, use_container_width=True)
